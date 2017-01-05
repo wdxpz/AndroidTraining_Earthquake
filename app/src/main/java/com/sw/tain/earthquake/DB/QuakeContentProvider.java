@@ -1,5 +1,6 @@
 package com.sw.tain.earthquake.DB;
 
+import android.app.SearchManager;
 import android.content.ContentProvider;
 import android.content.ContentUris;
 import android.content.ContentValues;
@@ -13,6 +14,10 @@ import android.support.annotation.Nullable;
 import android.text.TextUtils;
 
 import com.sw.tain.earthquake.DB.QuakeDBModel.*;
+import com.sw.tain.earthquake.Model.Quake;
+
+import java.util.HashMap;
+
 /**
  * Created by home on 2016/12/30.
  */
@@ -21,6 +26,7 @@ public class QuakeContentProvider extends ContentProvider {
     public static final Uri CONTENT_URI = Uri.parse("content://com.sw.tain.earthquake.provider/elements");
     private static final int SINGLE_ROW = 1;
     private static final int ALL_ROW = 2;
+    private static final int SEARCH = 3;
 
     private static final UriMatcher mUriMatcher;
 
@@ -28,6 +34,24 @@ public class QuakeContentProvider extends ContentProvider {
         mUriMatcher = new UriMatcher(UriMatcher.NO_MATCH);
         mUriMatcher.addURI("com.sw.tain.earthquake.provider", "elements", ALL_ROW);
         mUriMatcher.addURI("com.sw.tain.earthquake.provider", "elements/#", SINGLE_ROW);
+        mUriMatcher.addURI("com.sw.tain.earthquake.provider",
+                SearchManager.SUGGEST_URI_PATH_QUERY, SEARCH);
+        mUriMatcher.addURI("com.sw.tain.earthquake.provider",
+                SearchManager.SUGGEST_URI_PATH_QUERY + "/*", SEARCH);
+        mUriMatcher.addURI("com.sw.tain.earthquake.provider",
+                SearchManager.SUGGEST_URI_PATH_SHORTCUT, SEARCH);
+        mUriMatcher.addURI("com.sw.tain.earthquake.provider",
+                SearchManager.SUGGEST_URI_PATH_SHORTCUT + "/*", SEARCH);
+    }
+
+    private static final HashMap<String, String> mSearchProjectionMap;
+    static {
+        mSearchProjectionMap = new HashMap<>();
+        mSearchProjectionMap.put(SearchManager.SUGGEST_COLUMN_TEXT_1,
+                QuakeTable.COL.SUMMARY + " as " + SearchManager.SUGGEST_COLUMN_TEXT_1 );
+        mSearchProjectionMap.put("_id",
+                QuakeTable.COL.KEY_ID + " as" + "_id");
+
     }
 
     private QuakeDBOpenHelper mDBOpenHelper;
@@ -39,6 +63,7 @@ public class QuakeContentProvider extends ContentProvider {
         switch (mUriMatcher.match(uri)){
             case SINGLE_ROW: return "vnd.android.cursor.dir/vnd.com.sw.tain.earthquake";
             case ALL_ROW: return "vnd.android.cursor.item/vnd.com.sw.tain.earthquake";
+            case SEARCH: return SearchManager.SUGGEST_MIME_TYPE;
             default: throw new IllegalArgumentException("Unsupported URI: " + uri);
         }
     }
@@ -61,6 +86,12 @@ public class QuakeContentProvider extends ContentProvider {
             case SINGLE_ROW:
                 String id = uri.getPathSegments().get(1);
                 queryBuilder.appendWhere(QuakeTable.COL.KEY_ID + "=" + id);
+                break;
+            case SEARCH:
+                String para = uri.getPathSegments().get(1);
+                queryBuilder.appendWhere(QuakeTable.COL.SUMMARY + " like \"%"
+                        + uri.getPathSegments().get(1) + "%\"");
+                queryBuilder.setProjectionMap(mSearchProjectionMap);
                 break;
             default:
                 break;
